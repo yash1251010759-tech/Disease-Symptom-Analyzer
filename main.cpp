@@ -1,7 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-// Educational project only; this is not a medical diagnosis system.
+// ==================== STRUCTURES ====================
 
 struct Disease {
     string name;
@@ -9,91 +9,34 @@ struct Disease {
 };
 
 struct TreeNode {
-    string name;
-    TreeNode *left, *right;
+    string diseaseName;
+    TreeNode* left;
+    TreeNode* right;
 
-    TreeNode(string n) : name(n), left(NULL), right(NULL) {}
+    TreeNode(string name) {
+        diseaseName = name;
+        left = NULL;
+        right = NULL;
+    }
 };
 
 struct HistoryNode {
-    string entry;
+    string diseaseName;
     HistoryNode* next;
 
-    HistoryNode(string e) : entry(e), next(NULL) {}
+    HistoryNode(string name) {
+        diseaseName = name;
+        next = NULL;
+    }
 };
+
+// ==================== GLOBAL VARIABLES ====================
 
 HistoryNode* historyHead = NULL;
 
-// ==================== BST ====================
-
-TreeNode* insertDisease(TreeNode* root, string name) {
-    if (root == NULL)
-        return new TreeNode(name);
-
-    if (name < root->name)
-        root->left = insertDisease(root->left, name);
-    else if (name > root->name)
-        root->right = insertDisease(root->right, name);
-
-    return root;
-}
-
-void deleteBST(TreeNode* root) {
-    if (root == NULL) return;
-
-    deleteBST(root->left);
-    deleteBST(root->right);
-    delete root;
-}
-
-TreeNode* buildBST(const vector<Disease>& diseases) {
-    TreeNode* root = NULL;
-
-    for (const auto& d : diseases)
-        root = insertDisease(root, d.name);
-
-    return root;
-}
-
-void inorder(TreeNode* root) {
-    if (!root) return;
-    inorder(root->left);
-    cout << root->name << '\n';
-    inorder(root->right);
-}
-
-void preorder(TreeNode* root) {
-    if (!root) return;
-    cout << root->name << '\n';
-    preorder(root->left);
-    preorder(root->right);
-}
-
-void postorder(TreeNode* root) {
-    if (!root) return;
-    postorder(root->left);
-    postorder(root->right);
-    cout << root->name << '\n';
-}
-
-TreeNode* searchBST(TreeNode* root, string name) {
-    if (!root || root->name == name)
-        return root;
-
-    if (name < root->name)
-        return searchBST(root->left, name);
-
-    return searchBST(root->right, name);
-}
+unordered_map<string, vector<string>> graph;
 
 // ==================== FILE HANDLING ====================
-
-// File format:
-// Disease name
-// Number of symptoms
-// Symptom 1
-// Symptom 2
-// ...
 
 bool saveDiseases(const vector<Disease>& diseases) {
     ofstream file("diseases.txt");
@@ -117,13 +60,15 @@ bool saveDiseases(const vector<Disease>& diseases) {
 bool loadDiseases(vector<Disease>& diseases) {
     ifstream file("diseases.txt");
 
-    if (!file) return false;
+    if (!file)
+        return false;
 
     vector<Disease> loaded;
     string name, countLine;
 
     while (getline(file, name)) {
-        if (name.empty()) continue;
+        if (name.empty())
+            continue;
 
         if (!getline(file, countLine))
             return false;
@@ -132,11 +77,12 @@ bool loadDiseases(vector<Disease>& diseases) {
 
         try {
             count = stoi(countLine);
-        } catch (...) {
+        }
+        catch (...) {
             return false;
         }
 
-        if (count < 0 || count > 1000)
+        if (count < 0)
             return false;
 
         Disease d;
@@ -168,28 +114,6 @@ void saveHistoryEntry(string entry) {
         file << entry << '\n';
 }
 
-void addToHistory(string entry) {
-    HistoryNode* node = new HistoryNode(entry);
-    node->next = historyHead;
-    historyHead = node;
-
-    saveHistoryEntry(entry);
-}
-
-void displayHistory() {
-    cout << "\n===== CURRENT SESSION HISTORY =====\n";
-
-    if (!historyHead) {
-        cout << "No history available.\n";
-        return;
-    }
-
-    for (HistoryNode* temp = historyHead;
-         temp != NULL; temp = temp->next) {
-        cout << temp->entry << '\n';
-    }
-}
-
 void showSavedHistory() {
     ifstream file("history.txt");
     string line;
@@ -201,15 +125,47 @@ void showSavedHistory() {
         return;
     }
 
-    while (getline(file, line))
+    bool found = false;
+
+    while (getline(file, line)) {
         cout << line << '\n';
+        found = true;
+    }
+
+    if (!found)
+        cout << "No saved history available.\n";
+}
+
+// ==================== LINKED LIST HISTORY ====================
+
+void addToHistory(string name) {
+    HistoryNode* newNode = new HistoryNode(name);
+
+    newNode->next = historyHead;
+    historyHead = newNode;
+
+    saveHistoryEntry(name);
+}
+
+void displayHistory() {
+    if (historyHead == NULL) {
+        cout << "\nNo search history is available!\n";
+        return;
+    }
+
+    HistoryNode* temp = historyHead;
+
+    cout << "\n===== RECENT SEARCH HISTORY =====\n";
+
+    while (temp != NULL) {
+        cout << temp->diseaseName << "\n";
+        temp = temp->next;
+    }
 }
 
 // ==================== GRAPH ====================
 
 // Bipartite graph: Disease nodes <-> Symptom nodes.
-
-unordered_map<string, vector<string>> graph;
 
 string diseaseNode(string name) {
     return "Disease: " + name;
@@ -243,6 +199,11 @@ void buildGraph(const vector<Disease>& diseases) {
 void displayGraph() {
     cout << "\n===== DISEASE-SYMPTOM GRAPH =====\n";
 
+    if (graph.empty()) {
+        cout << "Graph is empty.\n";
+        return;
+    }
+
     vector<string> nodes;
 
     for (const auto& p : graph)
@@ -257,7 +218,9 @@ void displayGraph() {
         sort(neighbours.begin(), neighbours.end());
 
         for (size_t i = 0; i < neighbours.size(); i++) {
-            if (i) cout << ", ";
+            if (i)
+                cout << ", ";
+
             cout << neighbours[i];
         }
 
@@ -265,7 +228,7 @@ void displayGraph() {
     }
 }
 
-// BFS traversal
+// BFS Traversal
 
 void graphBFS() {
     string name;
@@ -308,7 +271,7 @@ void graphBFS() {
     addToHistory("BFS: " + name);
 }
 
-// DFS traversal
+// DFS Traversal
 
 void dfsVisit(string node, unordered_set<string>& visited) {
     visited.insert(node);
@@ -344,7 +307,7 @@ void graphDFS() {
     addToHistory("DFS: " + name);
 }
 
-// Search diseases using graph
+// Search Diseases Using Graph
 
 void graphSymptomSearch() {
     string symptom;
@@ -369,97 +332,239 @@ void graphSymptomSearch() {
     addToHistory("Graph symptom search: " + symptom);
 }
 
-// ==================== DISEASE FUNCTIONS ====================
+// ==================== BINARY SEARCH TREE ====================
 
-void displayDiseases(const vector<Disease>& diseases) {
-    cout << "\n===== ALL DISEASES =====\n";
-
-    for (const auto& d : diseases) {
-        cout << "\nDisease: " << d.name << "\nSymptoms: ";
-
-        for (size_t i = 0; i < d.symptoms.size(); i++) {
-            if (i) cout << ", ";
-            cout << d.symptoms[i];
-        }
-
-        cout << '\n';
+TreeNode* insertDisease(TreeNode* root, string name) {
+    if (root == NULL) {
+        return new TreeNode(name);
+    }
+    else if (name < root->diseaseName) {
+        root->left = insertDisease(root->left, name);
+    }
+    else if (name > root->diseaseName) {
+        root->right = insertDisease(root->right, name);
     }
 
-    if (diseases.empty())
-        cout << "No diseases available.\n";
+    return root;
 }
 
-void searchDisease(const vector<Disease>& diseases) {
-    string name;
+TreeNode* buildBST(const vector<Disease>& diseases) {
+    TreeNode* root = NULL;
 
-    cout << "Enter disease name: ";
-    getline(cin >> ws, name);
+    for (const auto& d : diseases)
+        root = insertDisease(root, d.name);
 
-    for (const auto& d : diseases) {
-        if (d.name == name) {
-            cout << "Disease found: " << d.name << "\nSymptoms: ";
+    return root;
+}
 
-            for (size_t i = 0; i < d.symptoms.size(); i++) {
-                if (i) cout << ", ";
-                cout << d.symptoms[i];
+void deleteBST(TreeNode* root) {
+    if (root == NULL)
+        return;
+
+    deleteBST(root->left);
+    deleteBST(root->right);
+    delete root;
+}
+
+void inorderTraversal(TreeNode* root) {
+    if (root == NULL)
+        return;
+
+    inorderTraversal(root->left);
+    cout << root->diseaseName << endl;
+    inorderTraversal(root->right);
+}
+
+void preorderTraversal(TreeNode* root) {
+    if (root == NULL)
+        return;
+
+    cout << root->diseaseName << endl;
+    preorderTraversal(root->left);
+    preorderTraversal(root->right);
+}
+
+void postorderTraversal(TreeNode* root) {
+    if (root == NULL)
+        return;
+
+    postorderTraversal(root->left);
+    postorderTraversal(root->right);
+    cout << root->diseaseName << endl;
+}
+
+TreeNode* searchDiseaseBST(TreeNode* root, string name) {
+    if (root == NULL)
+        return NULL;
+
+    else if (name == root->diseaseName)
+        return root;
+
+    else if (name < root->diseaseName)
+        return searchDiseaseBST(root->left, name);
+
+    else
+        return searchDiseaseBST(root->right, name);
+}
+
+// ==================== DISEASE FUNCTIONS ====================
+
+// Display All Diseases
+
+void displayDiseases(const vector<Disease>& diseases) {
+    cout << "\n========== ALL DISEASES ==========\n";
+
+    if (diseases.empty()) {
+        cout << "No diseases available.\n";
+        return;
+    }
+
+    for (int i = 0; i < diseases.size(); i++) {
+        cout << "\nDisease: " << diseases[i].name << "\n";
+        cout << "Symptoms: ";
+
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            cout << diseases[i].symptoms[j];
+
+            if (j + 1 < diseases[i].symptoms.size())
+                cout << ", ";
+        }
+
+        cout << "\n";
+    }
+}
+
+// Search Disease
+
+void searchDiseases(const vector<Disease>& diseases) {
+    string userDisease;
+    bool found = false;
+
+    cout << "\nEnter disease name: ";
+    getline(cin >> ws, userDisease);
+
+    for (int i = 0; i < diseases.size(); i++) {
+        if (diseases[i].name == userDisease) {
+            addToHistory(diseases[i].name);
+            found = true;
+
+            cout << "Disease found: " << diseases[i].name << endl;
+            cout << "Symptoms: ";
+
+            for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+                cout << diseases[i].symptoms[j];
+
+                if (j + 1 < diseases[i].symptoms.size())
+                    cout << ", ";
             }
 
             cout << '\n';
-            addToHistory("Disease search: " + name);
-            return;
-        }
-    }
-
-    cout << "Disease not found.\n";
-}
-
-void findDiseasesBySymptom(const vector<Disease>& diseases) {
-    string symptom;
-    bool found = false;
-
-    cout << "Enter symptom: ";
-    getline(cin >> ws, symptom);
-
-    for (const auto& d : diseases) {
-        if (find(d.symptoms.begin(), d.symptoms.end(), symptom)
-            != d.symptoms.end()) {
-            cout << d.name << '\n';
-            found = true;
+            break;
         }
     }
 
     if (!found)
-        cout << "No matching diseases found.\n";
-    else
-        addToHistory("Symptom search: " + symptom);
+        cout << "Disease not found in the dataset.\n";
 }
 
-unordered_map<string, int> getFrequency(
-    const vector<Disease>& diseases) {
+// Find Diseases By Symptom
 
-    unordered_map<string, int> frequency;
+void findDiseasesBySymptom(const vector<Disease>& diseases) {
+    string userSymptom;
+    bool found = false;
 
-    for (const auto& d : diseases) {
-        unordered_set<string> uniqueSymptoms(
-            d.symptoms.begin(), d.symptoms.end());
+    cout << "\nEnter symptom: ";
+    getline(cin >> ws, userSymptom);
 
-        for (const auto& s : uniqueSymptoms)
-            frequency[s]++;
+    for (int i = 0; i < diseases.size(); i++) {
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            if (diseases[i].symptoms[j] == userSymptom) {
+                found = true;
+
+                cout << "Disease containing " << userSymptom
+                     << ": " << diseases[i].name << endl;
+
+                break;
+            }
+        }
     }
 
-    return frequency;
+    if (!found)
+        cout << "Symptom not found.\n";
 }
 
+// Add New Disease
+
+void addDisease(vector<Disease>& diseases) {
+    Disease d;
+    string newDisease;
+
+    cout << "Enter the new disease name: ";
+    getline(cin >> ws, newDisease);
+
+    for (const auto& existing : diseases) {
+        if (existing.name == newDisease) {
+            cout << "Disease already exists.\n";
+            return;
+        }
+    }
+
+    int n;
+
+    cout << "Enter the number of symptoms: ";
+
+    if (!(cin >> n)) {
+        cout << "Invalid number.\n";
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        return;
+    }
+
+    if (n <= 0) {
+        cout << "Number of symptoms must be positive.\n";
+        return;
+    }
+
+    vector<string> newSymptoms(n);
+
+    cout << "Enter the symptoms: ";
+
+    for (int i = 0; i < n; i++)
+        cin >> newSymptoms[i];
+
+    d.name = newDisease;
+    d.symptoms = newSymptoms;
+
+    diseases.push_back(d);
+
+    cout << "New disease added successfully!\n";
+}
+
+// Common Symptoms
+
 void commonSymptoms(const vector<Disease>& diseases) {
-    auto frequency = getFrequency(diseases);
-    bool found = false;
+    unordered_map<string, int> frequency;
+
+    for (int i = 0; i < diseases.size(); i++) {
+        unordered_set<string> counted;
+
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            string symptom = diseases[i].symptoms[j];
+
+            if (counted.insert(symptom).second)
+                frequency[symptom]++;
+        }
+    }
 
     cout << "\n===== COMMON SYMPTOMS =====\n";
 
-    for (const auto& p : frequency) {
-        if (p.second >= 2) {
-            cout << p.first << " appears in "
-                 << p.second << " diseases.\n";
+    bool found = false;
+
+    for (const auto& entry : frequency) {
+        if (entry.second >= 2) {
+            cout << entry.first << " appears in "
+                 << entry.second << " diseases.\n";
+
             found = true;
         }
     }
@@ -468,169 +573,217 @@ void commonSymptoms(const vector<Disease>& diseases) {
         cout << "No common symptoms found.\n";
 }
 
+// Symptom Frequency
+
 void symptomFrequency(const vector<Disease>& diseases) {
-    auto frequency = getFrequency(diseases);
+    unordered_map<string, int> frequency;
 
-    vector<pair<string, int>> result(
-        frequency.begin(), frequency.end());
+    for (int i = 0; i < diseases.size(); i++) {
+        unordered_set<string> counted;
 
-    sort(result.begin(), result.end(),
-        [](const auto& a, const auto& b) {
-            if (a.second != b.second)
-                return a.second > b.second;
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            string symptom = diseases[i].symptoms[j];
 
-            return a.first < b.first;
-        });
-
-    cout << "\n===== SYMPTOM FREQUENCY =====\n";
-
-    for (const auto& p : result)
-        cout << p.first << " : "
-             << p.second << " diseases\n";
-}
-
-void addDisease(vector<Disease>& diseases) {
-    Disease d;
-
-    cout << "Enter new disease name: ";
-    getline(cin >> ws, d.name);
-
-    for (const auto& old : diseases) {
-        if (old.name == d.name) {
-            cout << "Disease already exists.\n";
-            return;
+            if (counted.insert(symptom).second)
+                frequency[symptom]++;
         }
     }
 
-    int n;
+    cout << "\n====== SYMPTOM FREQUENCY =====\n";
 
-    cout << "Enter number of symptoms: ";
-
-    if (!(cin >> n) || n <= 0 || n > 100) {
-        cout << "Invalid number of symptoms.\n";
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    if (frequency.empty()) {
+        cout << "No symptoms available in the dataset.\n";
         return;
     }
 
-    for (int i = 0; i < n; i++) {
-        string symptom;
-
-        cout << "Enter symptom " << i + 1 << ": ";
-        getline(cin >> ws, symptom);
-
-        if (!symptom.empty())
-            d.symptoms.push_back(symptom);
-    }
-
-    diseases.push_back(d);
-    cout << "Disease added successfully.\n";
+    for (const auto& entry : frequency)
+        cout << entry.first << " : " << entry.second << " diseases\n";
 }
+
+// Delete Disease
 
 void deleteDisease(vector<Disease>& diseases) {
-    string name;
+    string diseaseName;
 
-    cout << "Enter disease name to delete: ";
-    getline(cin >> ws, name);
+    cout << "Enter the name of the disease to be deleted: ";
+    getline(cin >> ws, diseaseName);
 
-    auto it = find_if(diseases.begin(), diseases.end(),
-        [&](const Disease& d) {
-            return d.name == name;
-        });
+    bool found = false;
 
-    if (it == diseases.end()) {
-        cout << "Disease not found.\n";
-        return;
+    for (int i = 0; i < diseases.size(); i++) {
+        if (diseases[i].name == diseaseName) {
+            found = true;
+
+            diseases.erase(diseases.begin() + i);
+
+            cout << "Disease " << diseaseName
+                 << " deleted successfully!\n";
+
+            break;
+        }
     }
 
-    diseases.erase(it);
-    cout << "Disease deleted successfully.\n";
+    if (!found)
+        cout << "Disease " << diseaseName << " was not found.\n";
 }
 
-void updateDisease(vector<Disease>& diseases) {
-    string name;
+// Update Disease
 
-    cout << "Enter disease name to update: ";
-    getline(cin >> ws, name);
+bool updateDisease(vector<Disease>& diseases, string diseaseName) {
+    for (int i = 0; i < diseases.size(); i++) {
+        if (diseases[i].name == diseaseName) {
 
-    auto it = find_if(diseases.begin(), diseases.end(),
-        [&](const Disease& d) {
-            return d.name == name;
-        });
+            int count;
 
-    if (it == diseases.end()) {
-        cout << "Disease not found.\n";
-        return;
+            cout << "Enter the number of new symptoms of "
+                 << diseaseName << ": ";
+
+            if (!(cin >> count)) {
+                cout << "Invalid number.\n";
+                cin.clear();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                return false;
+            }
+
+            if (count <= 0) {
+                cout << "Number of symptoms must be positive.\n";
+                return false;
+            }
+
+            vector<string> s(count);
+
+            cout << "\nEnter the new symptoms: ";
+
+            for (int j = 0; j < count; j++)
+                cin >> s[j];
+
+            diseases[i].symptoms = s;
+
+            cout << "\nThe updated Disease: "
+                 << diseases[i].name << " : ";
+
+            for (int k = 0; k < diseases[i].symptoms.size(); k++)
+                cout << diseases[i].symptoms[k] << " ";
+
+            cout << "\nDisease " << diseaseName
+                 << " updated successfully!\n";
+
+            return true;
+        }
     }
 
-    int n;
-
-    cout << "Enter new number of symptoms: ";
-
-    if (!(cin >> n) || n <= 0 || n > 100) {
-        cout << "Invalid number of symptoms.\n";
-        cin.clear();
-        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-        return;
-    }
-
-    vector<string> updated;
-
-    for (int i = 0; i < n; i++) {
-        string symptom;
-
-        cout << "Enter symptom " << i + 1 << ": ";
-        getline(cin >> ws, symptom);
-
-        if (!symptom.empty())
-            updated.push_back(symptom);
-    }
-
-    it->symptoms = updated;
-    cout << "Symptoms updated successfully.\n";
+    cout << "Disease " << diseaseName << " is not found.\n";
+    return false;
 }
+
+// Sort Diseases
 
 void sortDiseases(vector<Disease>& diseases) {
     sort(diseases.begin(), diseases.end(),
-        [](const Disease& a, const Disease& b) {
-            return a.name < b.name;
-        });
+         [](const Disease& a, const Disease& b) {
+             return a.name < b.name;
+         });
 
-    for (const auto& d : diseases)
-        cout << d.name << '\n';
+    cout << "The diseases in sorted order are:\n";
+
+    for (int i = 0; i < diseases.size(); i++)
+        cout << diseases[i].name << "\n";
 }
 
-void topKSymptoms(const vector<Disease>& diseases) {
-    auto frequency = getFrequency(diseases);
+// Sort Symptoms
 
-    vector<pair<string, int>> result(
-        frequency.begin(), frequency.end());
+void sortSymptoms(vector<Disease>& diseases) {
+    unordered_map<string, int> frequency;
 
-    sort(result.begin(), result.end(),
-        [](const auto& a, const auto& b) {
-            if (a.second != b.second)
-                return a.second > b.second;
+    for (int i = 0; i < diseases.size(); i++) {
+        unordered_set<string> counted;
 
-            return a.first < b.first;
-        });
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            string symptom = diseases[i].symptoms[j];
+
+            if (counted.insert(symptom).second)
+                frequency[symptom]++;
+        }
+    }
+
+    vector<pair<string, int>> ans;
+
+    for (auto& entry : frequency)
+        ans.push_back({entry.first, entry.second});
+
+    sort(ans.begin(), ans.end(),
+         [](const pair<string, int>& a, const pair<string, int>& b) {
+             if (a.second != b.second)
+                 return a.second > b.second;
+
+             return a.first < b.first;
+         });
+
+    cout << "\n===== SORTED SYMPTOMS =====\n";
+
+    for (const auto& entry : ans)
+        cout << entry.first << " : " << entry.second << " diseases\n";
+}
+
+// Top K Symptoms
+
+void topKsymptoms(vector<Disease>& diseases) {
+    unordered_map<string, int> frequency;
+
+    for (int i = 0; i < diseases.size(); i++) {
+        unordered_set<string> counted;
+
+        for (int j = 0; j < diseases[i].symptoms.size(); j++) {
+            string symptom = diseases[i].symptoms[j];
+
+            if (counted.insert(symptom).second)
+                frequency[symptom]++;
+        }
+    }
+
+    vector<pair<string, int>> ans;
+
+    for (auto& entry : frequency)
+        ans.push_back({entry.first, entry.second});
+
+    sort(ans.begin(), ans.end(),
+         [](const pair<string, int>& a, const pair<string, int>& b) {
+             if (a.second != b.second)
+                 return a.second > b.second;
+
+             return a.first < b.first;
+         });
+
+    if (ans.empty()) {
+        cout << "No symptoms available.\n";
+        return;
+    }
 
     int k;
 
-    cout << "Enter K: ";
+    cout << "Enter the value of k: ";
 
-    if (!(cin >> k) || k <= 0) {
-        cout << "K must be positive.\n";
+    if (!(cin >> k)) {
+        cout << "Invalid value of k.\n";
         cin.clear();
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
         return;
     }
 
-    k = min(k, (int)result.size());
+    cout << endl;
+
+    if (k <= 0) {
+        cout << "K must be positive.\n";
+        return;
+    }
+
+    k = min(k, (int)ans.size());
 
     for (int i = 0; i < k; i++)
-        cout << result[i].first << " : "
-             << result[i].second << " diseases\n";
+        cout << ans[i].first << " : " << ans[i].second << " diseases\n";
 }
+
+// ==================== REPORT ====================
 
 void exportReport(const vector<Disease>& diseases) {
     ofstream file("report.txt");
@@ -640,33 +793,33 @@ void exportReport(const vector<Disease>& diseases) {
         return;
     }
 
-    file << "DISEASE-SYMPTOM RELATIONSHIP REPORT\n\n";
+    file << "===== DISEASE-SYMPTOM REPORT =====\n\n";
 
     for (const auto& d : diseases) {
-        file << "Disease: " << d.name << "\nSymptoms: ";
+        file << "Disease: " << d.name << '\n';
+        file << "Symptoms: ";
 
         for (size_t i = 0; i < d.symptoms.size(); i++) {
-            if (i) file << ", ";
             file << d.symptoms[i];
+
+            if (i + 1 < d.symptoms.size())
+                file << ", ";
         }
 
         file << "\n\n";
     }
 
-    auto frequency = getFrequency(diseases);
+    file.close();
 
-    file << "SYMPTOM FREQUENCY\n";
-
-    for (const auto& p : frequency)
-        file << p.first << " : "
-             << p.second << " diseases\n";
-
-    cout << "Report saved to report.txt\n";
+    cout << "Report exported successfully to report.txt\n";
 }
 
-// ==================== MENU ====================
+// ==================== MAIN FUNCTION ====================
 
 int main() {
+
+    // Sample educational dataset
+
     vector<Disease> diseases = {
         {"Disease A", {"Fever", "Cough", "Fatigue"}},
         {"Disease B", {"Fever", "Headache", "Fatigue"}},
@@ -675,63 +828,68 @@ int main() {
         {"Disease E", {"Cough", "Fatigue", "Headache"}}
     };
 
-    if (loadDiseases(diseases)) {
-        cout << "Loaded diseases.txt successfully.\n";
-    } else {
+    if (loadDiseases(diseases))
+        cout << "Dataset loaded successfully from diseases.txt\n";
+    else
         cout << "Using default dataset.\n";
-        saveDiseases(diseases);
-    }
 
     TreeNode* root = buildBST(diseases);
+
     buildGraph(diseases);
 
     int choice;
 
     do {
-        cout << "\n============================================\n";
-        cout << " DISEASE-SYMPTOM RELATIONSHIP ANALYZER\n";
+        bool changed = false;
+
+        cout << "\n";
         cout << "============================================\n";
-        cout << "1. Display all diseases\n";
-        cout << "2. Search disease\n";
-        cout << "3. Find diseases by symptom\n";
-        cout << "4. Find common symptoms\n";
-        cout << "5. Show symptom frequency\n";
-        cout << "6. Add disease\n";
-        cout << "7. Delete disease\n";
-        cout << "8. Update disease symptoms\n";
+        cout << "   DISEASE-SYMPTOM RELATIONSHIP ANALYZER\n";
+        cout << "============================================\n";
+
+        cout << "1. Display All Diseases\n";
+        cout << "2. Search Disease\n";
+        cout << "3. Find Diseases by Symptom\n";
+        cout << "4. Find Common Symptoms\n";
+        cout << "5. Show Symptom Frequency\n";
+        cout << "6. Add new disease\n";
+        cout << "7. Delete diseases\n";
+        cout << "8. Update diseases\n";
         cout << "9. Sort diseases\n";
-        cout << "10. Top K symptoms\n";
-        cout << "11. View current search history\n";
-        cout << "12. BST inorder traversal\n";
-        cout << "13. BST preorder traversal\n";
-        cout << "14. BST postorder traversal\n";
-        cout << "15. Search disease using BST\n";
-        cout << "16. Display graph\n";
-        cout << "17. Graph BFS traversal\n";
-        cout << "18. Graph DFS traversal\n";
-        cout << "19. Search diseases using graph\n";
-        cout << "20. Show saved history from file\n";
-        cout << "21. Export report\n";
-        cout << "22. Save dataset\n";
-        cout << "23. Exit\n";
-        cout << "Enter choice: ";
+        cout << "10. Sort Symptoms\n";
+        cout << "11. Top K symptoms\n";
+        cout << "12. View recent search history\n";
+        cout << "13. BST Inorder Traversal\n";
+        cout << "14. BST Preorder Traversal\n";
+        cout << "15. BST Postorder Traversal\n";
+        cout << "16. Search Disease Using BST\n";
+        cout << "17. Display Disease-Symptom Graph\n";
+        cout << "18. Graph BFS Traversal\n";
+        cout << "19. Graph DFS Traversal\n";
+        cout << "20. Search Diseases Using Graph Symptom\n";
+        cout << "21. View Saved History\n";
+        cout << "22. Export Report\n";
+        cout << "23. Save Dataset and Exit\n";
+
+        cout << "\nEnter your choice: ";
 
         if (!(cin >> choice)) {
-            cout << "Invalid input.\n";
+            cout << "\nInvalid input! Please enter a number.\n";
+
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
             continue;
         }
 
-        bool changed = false;
-
         switch (choice) {
+
             case 1:
                 displayDiseases(diseases);
                 break;
 
             case 2:
-                searchDisease(diseases);
+                searchDiseases(diseases);
                 break;
 
             case 3:
@@ -748,22 +906,32 @@ int main() {
 
             case 6: {
                 size_t oldSize = diseases.size();
+
                 addDisease(diseases);
+
                 changed = diseases.size() != oldSize;
                 break;
             }
 
             case 7: {
                 size_t oldSize = diseases.size();
+
                 deleteDisease(diseases);
+
                 changed = diseases.size() != oldSize;
                 break;
             }
 
-            case 8:
-                updateDisease(diseases);
-                changed = true;
+            case 8: {
+                string diseaseName;
+
+                cout << "Enter the name of the disease to be updated: ";
+                getline(cin >> ws, diseaseName);
+
+                changed = updateDisease(diseases, diseaseName);
+
                 break;
+            }
 
             case 9:
                 sortDiseases(diseases);
@@ -771,67 +939,71 @@ int main() {
                 break;
 
             case 10:
-                topKSymptoms(diseases);
+                sortSymptoms(diseases);
                 break;
 
             case 11:
-                displayHistory();
+                topKsymptoms(diseases);
                 break;
 
             case 12:
-                inorder(root);
+                displayHistory();
                 break;
 
             case 13:
-                preorder(root);
+                cout << "\nBST Inorder Traversal:\n";
+                inorderTraversal(root);
                 break;
 
             case 14:
-                postorder(root);
+                cout << "\nBST Preorder Traversal:\n";
+                preorderTraversal(root);
                 break;
 
-            case 15: {
+            case 15:
+                cout << "\nBST Postorder Traversal:\n";
+                postorderTraversal(root);
+                break;
+
+            case 16: {
                 string name;
 
                 cout << "Enter disease name: ";
                 getline(cin >> ws, name);
 
-                if (searchBST(root, name)) {
+                if (searchDiseaseBST(root, name)) {
                     cout << "Disease found in BST.\n";
                     addToHistory("BST search: " + name);
-                } else {
+                }
+                else {
                     cout << "Disease not found in BST.\n";
                 }
+
                 break;
             }
 
-            case 16:
+            case 17:
                 displayGraph();
                 break;
 
-            case 17:
+            case 18:
                 graphBFS();
                 break;
 
-            case 18:
+            case 19:
                 graphDFS();
                 break;
 
-            case 19:
+            case 20:
                 graphSymptomSearch();
                 break;
 
-            case 20:
+            case 21:
                 showSavedHistory();
                 break;
 
-            case 21:
-                exportReport(diseases);
-                break;
-
             case 22:
-                if (saveDiseases(diseases))
-                    cout << "Dataset saved successfully.\n";
+                exportReport(diseases);
                 break;
 
             case 23:
@@ -842,6 +1014,8 @@ int main() {
             default:
                 cout << "Invalid choice. Select 1-23.\n";
         }
+
+        // Update dataset, BST and Graph whenever data changes
 
         if (changed) {
             saveDiseases(diseases);
@@ -856,11 +1030,17 @@ int main() {
 
     } while (choice != 23);
 
+    // Free BST memory
+
     deleteBST(root);
+
+    // Free Linked List memory
 
     while (historyHead) {
         HistoryNode* next = historyHead->next;
+
         delete historyHead;
+
         historyHead = next;
     }
 
